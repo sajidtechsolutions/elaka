@@ -132,6 +132,28 @@
                             <option value="en">English</option>
                         </select>
                     </div>
+
+                    <!-- User District Option -->
+                    <div class="settings-item">
+                        <div class="settings-label-block">
+                            <b id="settings-lbl-user-district">আমার জেলা (My District)</b>
+                            <span id="settings-desc-user-district">ফিড অগ্রাধিকার সেট করতে জেলা নির্বাচন করুন</span>
+                        </div>
+                        <select id="settings-user-district" class="settings-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- User Upazila Option -->
+                    <div class="settings-item">
+                        <div class="settings-label-block">
+                            <b id="settings-lbl-user-upazila">আমার উপজেলা (My Upazila)</b>
+                            <span id="settings-desc-user-upazila">ফিড অগ্রাধিকার সেট করতে উপজেলা নির্বাচন করুন</span>
+                        </div>
+                        <select id="settings-user-upazila" class="settings-select" disabled>
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
                 </div>
             </div>
             
@@ -233,6 +255,31 @@
                     <button type="submit" id="btn-submit-post" class="btn-submit">পোস্ট করুন</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- User Location Picker Enforcer Modal -->
+    <div id="location-enforcer-overlay" class="modal-overlay">
+        <div class="modal-card" style="max-width: 400px; text-align: center;">
+            <div class="modal-header" style="border: none; justify-content: center;">
+                <h3 id="enforcer-title">আপনার এলাকা নির্বাচন করুন</h3>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 1rem;" id="enforcer-desc">
+                আপনার এলাকার অনুষ্ঠান এবং খবর অগ্রাধিকারের ভিত্তিতে দেখতে আপনার জেলা ও উপজেলা নির্বাচন করুন।
+            </p>
+            <div class="form-group" style="text-align: left; margin-bottom: 0.8rem;">
+                <label id="lbl-enf-district" for="enforcer-district-select">জেলা (District) *</label>
+                <select id="enforcer-district-select" class="form-select" required>
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+            <div class="form-group" style="text-align: left; margin-bottom: 1.2rem;">
+                <label id="lbl-enf-upazila" for="enforcer-upazila-select">উপজেলা/এলাকা (Upazila) *</label>
+                <select id="enforcer-upazila-select" class="form-select" required disabled>
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+            <button id="btn-save-location" class="btn-submit" style="width: 100%;">সংরক্ষণ করুন (Save)</button>
         </div>
     </div>
 

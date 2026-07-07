@@ -61,14 +61,10 @@ class LocalVibeApp {
                 fbPosts.push({ id: docSnap.id, ...docSnap.data() });
             });
 
-            if (fbPosts.length === 0) {
-                this.seedFirestore();
-            } else {
-                fbPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
-                this.posts = fbPosts;
-                StorageManager.savePosts(fbPosts);
-                this.renderPosts();
-            }
+            fbPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+            this.posts = fbPosts;
+            StorageManager.savePosts(fbPosts);
+            this.renderPosts();
         });
 
         // Real-time listener for contributors
@@ -88,15 +84,7 @@ class LocalVibeApp {
         });
     }
 
-    async seedFirestore() {
-        const db = window.firebaseDb;
-        const { collection, addDoc } = window.firestoreLib;
-        const postsCol = collection(db, "posts");
-        for (const post of DEFAULT_POSTS) {
-            const { id, ...postData } = post;
-            await addDoc(postsCol, postData);
-        }
-    }
+
 
     initDomElements() {
         // Navigation & Views
@@ -139,6 +127,15 @@ class LocalVibeApp {
         this.feedContainer = document.getElementById("feed-container");
         this.leaderboardBody = document.getElementById("leaderboard-body");
         this.pills = document.querySelectorAll(".food-filter-pills .pill");
+
+        // User Location settings & enforcer
+        this.userDistrictSelect = document.getElementById("settings-user-district");
+        this.userUpazilaSelect = document.getElementById("settings-user-upazila");
+        
+        this.locationEnforcerOverlay = document.getElementById("location-enforcer-overlay");
+        this.enforcerDistrictSelect = document.getElementById("enforcer-district-select");
+        this.enforcerUpazilaSelect = document.getElementById("enforcer-upazila-select");
+        this.btnSaveLocation = document.getElementById("btn-save-location");
     }
 
     initThemeAndLanguage() {
@@ -152,34 +149,65 @@ class LocalVibeApp {
         localStorage.setItem("localvibe_lang", this.currentLang);
     }
 
-    initLocationDropdowns() {
+    setupLocationPair(districtSelect, upazilaSelect, defaultDistrict = "", defaultUpazila = "") {
         const dict = TRANSLATIONS[this.currentLang];
         
-        this.districtSelect.innerHTML = `<option value="" disabled selected>${dict.districtPlaceholder}</option>`;
-        
+        districtSelect.innerHTML = `<option value="" disabled selected>${dict.districtPlaceholder}</option>`;
+        upazilaSelect.innerHTML = `<option value="" disabled selected>${dict.upazilaPlaceholder}</option>`;
+        upazilaSelect.disabled = true;
+
         BANGLADESH_DISTRICTS.forEach(d => {
             const opt = document.createElement("option");
             opt.value = d.name;
             opt.textContent = this.currentLang === "bn" ? d.bn_name : d.name;
-            this.districtSelect.appendChild(opt);
+            if (d.name === defaultDistrict) opt.selected = true;
+            districtSelect.appendChild(opt);
         });
 
-        this.districtSelect.addEventListener("change", (e) => {
-            const selectedDist = e.target.value;
-            this.upazilaSelect.innerHTML = `<option value="" disabled selected>${dict.upazilaPlaceholder}</option>`;
-            
-            if (BANGLADESH_LOCATIONS[selectedDist]) {
-                this.upazilaSelect.disabled = false;
-                BANGLADESH_LOCATIONS[selectedDist].forEach(upz => {
+        const populateUpazilas = (districtName, selectedUpz = "") => {
+            upazilaSelect.innerHTML = `<option value="" disabled selected>${dict.upazilaPlaceholder}</option>`;
+            if (BANGLADESH_LOCATIONS[districtName]) {
+                upazilaSelect.disabled = false;
+                BANGLADESH_LOCATIONS[districtName].forEach(upz => {
                     const opt = document.createElement("option");
                     opt.value = upz.name;
                     opt.textContent = this.currentLang === "bn" ? upz.bn_name : upz.name;
-                    this.upazilaSelect.appendChild(opt);
+                    if (upz.name === selectedUpz) opt.selected = true;
+                    upazilaSelect.appendChild(opt);
                 });
             } else {
-                this.upazilaSelect.disabled = true;
+                upazilaSelect.disabled = true;
             }
+        };
+
+        if (defaultDistrict) {
+            populateUpazilas(defaultDistrict, defaultUpazila);
+        }
+
+        districtSelect.addEventListener("change", (e) => {
+            populateUpazilas(e.target.value);
         });
+    }
+
+    initLocationDropdowns() {
+        const savedDistrict = localStorage.getItem("localvibe_user_district") || "";
+        const savedUpazila = localStorage.getItem("localvibe_user_upazila") || "";
+
+        // Setup Post Modal Selects
+        this.setupLocationPair(this.districtSelect, this.upazilaSelect);
+
+        // Setup Settings Selects
+        this.setupLocationPair(this.userDistrictSelect, this.userUpazilaSelect, savedDistrict, savedUpazila);
+
+        // Setup Enforcer Selects
+        this.setupLocationPair(this.enforcerDistrictSelect, this.enforcerUpazilaSelect, savedDistrict, savedUpazila);
+
+        // Check if user location is configured
+        if (!savedDistrict || !savedUpazila) {
+            setTimeout(() => {
+                this.locationEnforcerOverlay.classList.add("active");
+            }, 600);
+        }
     }
 
     initMap() {
@@ -210,6 +238,42 @@ class LocalVibeApp {
             } else {
                 document.body.classList.remove("dark-theme");
             }
+        });
+
+        // Save user location from enforcer
+        this.btnSaveLocation.addEventListener("click", () => {
+            const district = this.enforcerDistrictSelect.value;
+            const upazila = this.enforcerUpazilaSelect.value;
+
+            if (!district || !upazila) {
+                alert(TRANSLATIONS[this.currentLang].locationAlert);
+                return;
+            }
+
+            localStorage.setItem("localvibe_user_district", district);
+            localStorage.setItem("localvibe_user_upazila", upazila);
+
+            // Hide overlay
+            this.locationEnforcerOverlay.classList.remove("active");
+
+            // Sync selectors in settings panel
+            this.initLocationDropdowns();
+
+            // Re-render feed with prioritized sorting
+            this.renderPosts();
+            this.showToast(this.currentLang === "bn" ? "লোকেশন সংরক্ষিত হয়েছে!" : "Location saved successfully!");
+        });
+
+        // Save user location changes from Settings
+        this.userDistrictSelect.addEventListener("change", (e) => {
+            localStorage.setItem("localvibe_user_district", e.target.value);
+            localStorage.removeItem("localvibe_user_upazila"); // clear upazila until selected
+            this.renderPosts();
+        });
+
+        this.userUpazilaSelect.addEventListener("change", (e) => {
+            localStorage.setItem("localvibe_user_upazila", e.target.value);
+            this.renderPosts();
         });
 
         this.langSelect.addEventListener("change", (e) => {
@@ -535,6 +599,27 @@ class LocalVibeApp {
             const matchesStatus = this.currentStatusFilter === "all" || post.status === this.currentStatusFilter;
 
             return matchesSearch && matchesFood && matchesStatus;
+        });
+
+        const userDistrict = localStorage.getItem("localvibe_user_district") || "";
+        const userUpazila = localStorage.getItem("localvibe_user_upazila") || "";
+
+        filtered.sort((a, b) => {
+            let priorityA = 3;
+            let priorityB = 3;
+
+            if (a.district === userDistrict) {
+                priorityA = (a.upazila === userUpazila) ? 1 : 2;
+            }
+            if (b.district === userDistrict) {
+                priorityB = (b.upazila === userUpazila) ? 1 : 2;
+            }
+
+            if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+            }
+
+            return new Date(b.date) - new Date(a.date);
         });
 
         filtered.forEach(post => {
