@@ -426,8 +426,6 @@ class LocalVibeApp {
 
         // Bottom nav
         document.getElementById("nav-lbl-feed").textContent = dict.navHome;
-        document.getElementById("nav-lbl-map").textContent = dict.navMap;
-        document.getElementById("nav-lbl-leaderboard").textContent = dict.navLeaderboard;
         document.getElementById("nav-lbl-settings").textContent = dict.navSettings;
 
         this.searchInput.placeholder = dict.searchPlaceholder;
