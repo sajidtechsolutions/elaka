@@ -29,7 +29,7 @@
                 <circle cx="12" cy="9" r="3" fill="var(--color-primary)" />
             </svg>
             <div class="logo-text">
-                <span class="brand-title">LocalVibe</span>
+                <span class="brand-title">এলাকা</span>
                 <span class="brand-subtitle">পাড়া কানেক্ট - এলাকার সব খবরাখবর ও অনুষ্ঠান এক জায়গায়!</span>
             </div>
         </div>
@@ -150,14 +150,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             <span id="nav-lbl-feed">ফিড</span>
         </button>
-        <button class="bottom-nav-btn" data-target="map-view">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-            <span id="nav-lbl-map">মানচিত্র</span>
-        </button>
-        <button class="bottom-nav-btn" data-target="leaderboard-view">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-            <span id="nav-lbl-leaderboard">সেরা</span>
-        </button>
         <button class="bottom-nav-btn" data-target="settings-view">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <span id="nav-lbl-settings">সেটিংস</span>
@@ -185,21 +177,6 @@
                         <select id="upazila-select" class="form-select" required disabled>
                             <!-- Options populated dynamically based on District selection -->
                         </select>
-                    </div>
-                </div>
-
-                <!-- Coordinates input grid with GPS button -->
-                <div class="form-group" style="margin-bottom: 0.8rem;">
-                    <label id="label-map-inst">ল্যাটিটিউড এবং লঞ্জিটিউড (ঐচ্ছিক)</label>
-                    <div class="coordinates-row">
-                        <div class="coords-fields">
-                            <input type="number" step="any" id="lat-input" class="form-input" placeholder="Latitude">
-                            <input type="number" step="any" id="lng-input" class="form-input" placeholder="Longitude">
-                        </div>
-                        <button type="button" id="btn-gps-fetch" class="btn-gps-fetch">
-                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v2M12 20v2M4 12H2M22 12h-2"/><circle cx="12" cy="12" r="7"/></svg>
-                            <span id="lbl-gps-btn">GPS</span>
-                        </button>
                     </div>
                 </div>
 
@@ -265,6 +242,36 @@
     <!-- Leaflet JS Library -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
+    <!-- Firebase SDK and initialization -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
+        import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, increment, arrayUnion, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB0JPQW3Lxt0LIKlWl_Q8XtcUQ3KrSxttk",
+            authDomain: "elakabd.firebaseapp.com",
+            projectId: "elakabd",
+            storageBucket: "elakabd.firebasestorage.app",
+            messagingSenderId: "74651845180",
+            appId: "1:74651845180:web:f4d16a050d16926984f939",
+            measurementId: "G-NXBLSW12XG"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+        // Expose Firebase components to window so standard script files can use them
+        window.firebaseDb = db;
+        window.firebaseAnalytics = analytics;
+        window.firestoreLib = { collection, addDoc, getDocs, onSnapshot, doc, updateDoc, increment, arrayUnion, setDoc };
+
+        // Dispatch a custom event to notify other scripts that Firebase is initialized
+        window.dispatchEvent(new CustomEvent("firebase-ready"));
+        console.log("Firebase initialized successfully!");
+    </script>
+
     <!-- Code base -->
     <script src="js/locations.js"></script>
     <script src="js/data.js"></script>

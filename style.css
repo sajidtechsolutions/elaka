@@ -119,6 +119,12 @@ body.dark-theme .ambient-glow {
     gap: 0.75rem;
 }
 
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .logo-icon {
     width: 34px;
     height: 34px;

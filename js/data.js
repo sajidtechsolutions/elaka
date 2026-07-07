@@ -2,7 +2,7 @@
 
 const TRANSLATIONS = {
     bn: {
-        title: "LocalVibe",
+        title: "এলাকা",
         subtitle: "পাড়া কানেক্ট - আপনার এলাকার সব খবরাখবর ও অনুষ্ঠান এক জায়গায়!",
         navHome: "ফিড",
         navMap: "মানচিত্র",
@@ -80,7 +80,7 @@ const TRANSLATIONS = {
         labelAnonymous: "নাম গোপন রাখুন (পোস্ট করুন বেনামে)"
     },
     en: {
-        title: "LocalVibe",
+        title: "Elaka",
         subtitle: "Para Connect - All your neighborhood events & news in one place!",
         navHome: "Feed",
         navMap: "Map View",
@@ -322,6 +322,23 @@ class StorageManager {
         return votedPosts.includes(postId);
     }
 
+    static toggleLocalVote(postId, state, reporterName) {
+        let votedPosts = JSON.parse(localStorage.getItem("localvibe_voted") || "[]");
+        const index = votedPosts.indexOf(postId);
+        if (state === 'added') {
+            if (index === -1) {
+                votedPosts.push(postId);
+                this.addPointsToUser(reporterName, 5);
+            }
+        } else if (state === 'removed') {
+            if (index > -1) {
+                votedPosts.splice(index, 1);
+                this.addPointsToUser(reporterName, -5);
+            }
+        }
+        localStorage.setItem("localvibe_voted", JSON.stringify(votedPosts));
+    }
+
     static flagPost(postId) {
         const posts = this.getPosts();
         const post = posts.find(p => p.id === postId);
@@ -374,5 +391,21 @@ class StorageManager {
         }
         contributors.sort((a, b) => b.points - a.points);
         localStorage.setItem("localvibe_contributors", JSON.stringify(contributors));
+
+        // Sync to Firebase
+        if (window.firebaseDb) {
+            const db = window.firebaseDb;
+            const { doc, setDoc, increment } = window.firestoreLib;
+            const isVerification = points > 0 && points !== 20;
+            const isUnverification = points < 0 && points !== -25;
+            const verifInc = isVerification ? 1 : (isUnverification ? -1 : 0);
+
+            const contribRef = doc(db, "contributors", userName);
+            setDoc(contribRef, {
+                name: userName,
+                points: increment(points),
+                verifications: increment(verifInc)
+            }, { merge: true }).catch(err => console.error("Leaderboard Firebase sync failed:", err));
+        }
     }
 }

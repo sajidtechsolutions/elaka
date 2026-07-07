@@ -39,6 +39,63 @@ class LocalVibeApp {
         this.renderPosts();
         this.renderLeaderboard();
         this.switchView(this.currentView);
+
+        // Bind Firebase Sync
+        this.initFirebaseSync();
+    }
+
+    initFirebaseSync() {
+        if (!window.firebaseDb) {
+            window.addEventListener("firebase-ready", () => this.initFirebaseSync());
+            return;
+        }
+
+        const db = window.firebaseDb;
+        const { collection, onSnapshot } = window.firestoreLib;
+
+        // Real-time listener for posts
+        const postsCol = collection(db, "posts");
+        onSnapshot(postsCol, (snapshot) => {
+            let fbPosts = [];
+            snapshot.forEach(docSnap => {
+                fbPosts.push({ id: docSnap.id, ...docSnap.data() });
+            });
+
+            if (fbPosts.length === 0) {
+                this.seedFirestore();
+            } else {
+                fbPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+                this.posts = fbPosts;
+                StorageManager.savePosts(fbPosts);
+                this.renderPosts();
+            }
+        });
+
+        // Real-time listener for contributors
+        const contribCol = collection(db, "contributors");
+        onSnapshot(contribCol, (snapshot) => {
+            let fbContribs = [];
+            snapshot.forEach(docSnap => {
+                fbContribs.push({ ...docSnap.data() });
+            });
+
+            if (fbContribs.length > 0) {
+                fbContribs.sort((a, b) => b.points - a.points);
+                this.contributors = fbContribs;
+                localStorage.setItem("localvibe_contributors", JSON.stringify(fbContribs));
+                this.renderLeaderboard();
+            }
+        });
+    }
+
+    async seedFirestore() {
+        const db = window.firebaseDb;
+        const { collection, addDoc } = window.firestoreLib;
+        const postsCol = collection(db, "posts");
+        for (const post of DEFAULT_POSTS) {
+            const { id, ...postData } = post;
+            await addDoc(postsCol, postData);
+        }
     }
 
     initDomElements() {
@@ -67,9 +124,6 @@ class LocalVibeApp {
         
         this.districtSelect = document.getElementById("district-select");
         this.upazilaSelect = document.getElementById("upazila-select");
-        this.latInput = document.getElementById("lat-input");
-        this.lngInput = document.getElementById("lng-input");
-        this.btnGpsFetch = document.getElementById("btn-gps-fetch");
         
         this.anonymousToggle = document.getElementById("anonymous-toggle");
         this.reporterNameGroup = document.getElementById("reporter-name-group");
@@ -205,40 +259,7 @@ class LocalVibeApp {
             }
         });
 
-        // GPS Fetch Coordinates
-        this.btnGpsFetch.addEventListener("click", () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const { latitude, longitude } = position.coords;
-                        this.latInput.value = latitude.toFixed(6);
-                        this.lngInput.value = longitude.toFixed(6);
-                        this.selectedLat = latitude;
-                        this.selectedLng = longitude;
 
-                        // Place marker on map
-                        if (this.tempMarker) {
-                            this.map.removeLayer(this.tempMarker);
-                        }
-                        const tempIcon = L.divIcon({
-                            className: 'custom-pin',
-                            html: `<div class="pin-wrapper sports" style="animation: pulse-glow 1.5s infinite alternate;"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg></div>`,
-                            iconSize: [30, 30],
-                            iconAnchor: [15, 30]
-                        });
-                        this.tempMarker = L.marker([latitude, longitude], { icon: tempIcon }).addTo(this.map);
-                        this.map.panTo([latitude, longitude]);
-
-                        this.showToast(TRANSLATIONS[this.currentLang].toastGeolocateSuccess);
-                    },
-                    (error) => {
-                        this.showToast(TRANSLATIONS[this.currentLang].toastGeolocateError, "error");
-                    }
-                );
-            } else {
-                this.showToast(TRANSLATIONS[this.currentLang].toastGeolocateError, "error");
-            }
-        });
 
         // Open modal
         this.btnOpenModal.addEventListener("click", () => {
@@ -267,9 +288,7 @@ class LocalVibeApp {
             this.selectedLat = lat;
             this.selectedLng = lng;
             
-            // Fill inputs in form
-            this.latInput.value = lat.toFixed(6);
-            this.lngInput.value = lng.toFixed(6);
+
 
             if (this.tempMarker) {
                 this.map.removeLayer(this.tempMarker);
@@ -302,27 +321,20 @@ class LocalVibeApp {
             }
 
             // Latitude / Longitude fallback configurations
-            let lat = parseFloat(this.latInput.value);
-            let lng = parseFloat(this.lngInput.value);
+            let lat = null;
+            let lng = null;
 
-            if (isNaN(lat) || isNaN(lng)) {
-                // Check if map coordinates exist
-                if (this.selectedLat && this.selectedLng) {
-                    lat = this.selectedLat;
-                    lng = this.selectedLng;
-                } else if (REGION_COORDINATES[upazila]) {
-                    // Fallback to Upazila center
-                    lat = REGION_COORDINATES[upazila].lat;
-                    lng = REGION_COORDINATES[upazila].lng;
-                } else if (REGION_COORDINATES[district]) {
-                    // Fallback to District center
-                    lat = REGION_COORDINATES[district].lat;
-                    lng = REGION_COORDINATES[district].lng;
-                } else {
-                    // Final fallback center
-                    lat = 23.755;
-                    lng = 90.385;
-                }
+            if (this.selectedLat && this.selectedLng) {
+                lat = this.selectedLat;
+                lng = this.selectedLng;
+            } else if (REGION_COORDINATES[district]) {
+                // Fallback to District center
+                lat = REGION_COORDINATES[district].lat;
+                lng = REGION_COORDINATES[district].lng;
+            } else {
+                // Final fallback center
+                lat = 23.755;
+                lng = 90.385;
             }
 
             const title = this.inputEventTitle.value.trim();
@@ -356,14 +368,28 @@ class LocalVibeApp {
                 comments: []
             };
 
-            this.posts = StorageManager.addPost(newPost);
-            this.contributors = StorageManager.getContributors();
+            if (window.firebaseDb) {
+                const db = window.firebaseDb;
+                const { collection, addDoc } = window.firestoreLib;
+                const postsCol = collection(db, "posts");
+                const { id, ...postData } = newPost;
+                addDoc(postsCol, postData).then(() => {
+                    StorageManager.addPointsToUser(newPost.reporterName, 20);
+                    this.showToast(TRANSLATIONS[this.currentLang].toastSuccess);
+                }).catch(err => {
+                    console.error("Firebase post failed:", err);
+                    this.posts = StorageManager.addPost(newPost);
+                    this.renderPosts();
+                });
+            } else {
+                this.posts = StorageManager.addPost(newPost);
+                this.contributors = StorageManager.getContributors();
+                this.renderPosts();
+                this.renderLeaderboard();
+                this.showToast(TRANSLATIONS[this.currentLang].toastSuccess);
+            }
             
             closeModal();
-            this.renderPosts();
-            this.renderLeaderboard();
-            this.showToast(TRANSLATIONS[this.currentLang].toastSuccess);
-
             this.map.flyTo([newPost.lat, newPost.lng], 15);
         });
     }
@@ -380,23 +406,14 @@ class LocalVibeApp {
         const activeBtn = Array.from(this.bottomNavButtons).find(btn => btn.getAttribute("data-target") === view);
         if (activeBtn) activeBtn.classList.add("active");
 
-        if (view === "home") {
+        if (view === "home" || view === "home-view") {
             this.homeView.style.display = "flex";
             this.sidebarFilters.style.display = "flex";
             if (window.innerWidth <= 900) {
                 this.mapPanel.style.display = "block";
             }
             setTimeout(() => this.map.invalidateSize(), 100);
-        } else if (view === "map") {
-            this.homeView.style.display = "flex";
-            this.sidebarFilters.style.display = "flex";
-            if (window.innerWidth <= 900) {
-                this.mapPanel.scrollIntoView({ behavior: "smooth" });
-            }
-            setTimeout(() => this.map.invalidateSize(), 100);
-        } else if (view === "leaderboard") {
-            this.leaderboardView.style.display = "block";
-        } else if (view === "settings") {
+        } else if (view === "settings" || view === "settings-view") {
             this.settingsView.style.display = "block";
         }
     }
@@ -449,7 +466,7 @@ class LocalVibeApp {
         document.getElementById("lbl-form-district").textContent = dict.labelSelectDistrictForm;
         document.getElementById("lbl-form-upazila").textContent = dict.labelSelectUpazilaForm;
         
-        document.getElementById("lbl-gps-btn").textContent = dict.labelGpsBtn;
+
         document.getElementById("lbl-anonymous-text").textContent = dict.labelAnonymous;
 
         document.getElementById("label-event-title").textContent = dict.labelEventTitle;
@@ -472,7 +489,7 @@ class LocalVibeApp {
         document.getElementById("label-reporter").textContent = this.currentLang === "bn" ? "আপনার নাম" : "Your Name";
         this.inputReporterName.placeholder = dict.reporterPlaceholder;
         
-        document.getElementById("label-map-inst").textContent = dict.labelMapInstruction;
+
         this.btnCancelModal.textContent = dict.btnCancel;
         document.getElementById("btn-submit-post").textContent = dict.btnSubmit;
     }
@@ -619,23 +636,51 @@ class LocalVibeApp {
             this.feedContainer.appendChild(card);
 
             card.querySelector(".verify-btn").addEventListener("click", () => {
-                const result = StorageManager.upvotePost(post.id);
-                this.posts = result.posts;
-                this.contributors = StorageManager.getContributors();
-                this.renderPosts();
-                this.renderLeaderboard();
-                
-                if (result.state === 'added') {
-                    this.showToast(dict.toastVerified);
+                if (window.firebaseDb) {
+                    const db = window.firebaseDb;
+                    const { doc, updateDoc, increment } = window.firestoreLib;
+                    const postRef = doc(db, "posts", post.id);
+                    
+                    const hasVoted = StorageManager.hasVoted(post.id);
+                    if (hasVoted) {
+                        updateDoc(postRef, { upvotes: increment(-1) }).then(() => {
+                            StorageManager.toggleLocalVote(post.id, 'removed', post.reporterName);
+                            this.showToast(dict.toastUnverified, "warning");
+                        });
+                    } else {
+                        updateDoc(postRef, { upvotes: increment(1) }).then(() => {
+                            StorageManager.toggleLocalVote(post.id, 'added', post.reporterName);
+                            this.showToast(dict.toastVerified);
+                        });
+                    }
                 } else {
-                    this.showToast(dict.toastUnverified, "warning");
+                    const result = StorageManager.upvotePost(post.id);
+                    this.posts = result.posts;
+                    this.contributors = StorageManager.getContributors();
+                    this.renderPosts();
+                    this.renderLeaderboard();
+                    
+                    if (result.state === 'added') {
+                        this.showToast(dict.toastVerified);
+                    } else {
+                        this.showToast(dict.toastUnverified, "warning");
+                    }
                 }
             });
 
             card.querySelector(".flag-btn").addEventListener("click", () => {
-                this.posts = StorageManager.flagPost(post.id);
-                this.renderPosts();
-                this.showToast(dict.toastFlagged, "error");
+                if (window.firebaseDb) {
+                    const db = window.firebaseDb;
+                    const { doc, updateDoc, increment } = window.firestoreLib;
+                    const postRef = doc(db, "posts", post.id);
+                    updateDoc(postRef, { flags: increment(1) }).then(() => {
+                        this.showToast(dict.toastFlagged, "error");
+                    });
+                } else {
+                    this.posts = StorageManager.flagPost(post.id);
+                    this.renderPosts();
+                    this.showToast(dict.toastFlagged, "error");
+                }
             });
 
             const commentBtn = card.querySelector(".comment-btn");
@@ -654,8 +699,20 @@ class LocalVibeApp {
                         text: text,
                         timestamp: new Date().toISOString()
                     };
-                    this.posts = StorageManager.addComment(post.id, newComment);
-                    this.renderPosts();
+
+                    if (window.firebaseDb) {
+                        const db = window.firebaseDb;
+                        const { doc, updateDoc, arrayUnion } = window.firestoreLib;
+                        const postRef = doc(db, "posts", post.id);
+                        updateDoc(postRef, {
+                            comments: arrayUnion(newComment)
+                        }).then(() => {
+                            commentInput.value = "";
+                        });
+                    } else {
+                        this.posts = StorageManager.addComment(post.id, newComment);
+                        this.renderPosts();
+                    }
                 }
             });
 
