@@ -297,17 +297,17 @@ class StorageManager {
         // Sync to Firebase
         if (window.firebaseDb) {
             const db = window.firebaseDb;
-            const { doc, setDoc, increment } = window.firestoreLib;
-            const isVerification = points > 0 && points !== 20;
-            const isUnverification = points < 0 && points !== -25;
-            const verifInc = isVerification ? 1 : (isUnverification ? -1 : 0);
+            const { ref, set } = window.databaseLib;
+            const safeKey = userName.replace(/[.#$\[\]]/g, "_");
+            const userRef = ref(db, `contributors/${safeKey}`);
 
-            const contribRef = doc(db, "contributors", userName);
-            setDoc(contribRef, {
-                name: userName,
-                points: increment(points),
-                verifications: increment(verifInc)
-            }, { merge: true }).catch(err => console.error("Leaderboard Firebase sync failed:", err));
+            if (user) {
+                set(userRef, {
+                    name: user.name,
+                    points: user.points,
+                    verifications: user.verifications
+                }).catch(err => console.error("Leaderboard Firebase sync failed:", err));
+            }
         }
     }
 }

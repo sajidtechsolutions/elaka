@@ -51,15 +51,18 @@ class LocalVibeApp {
         }
 
         const db = window.firebaseDb;
-        const { collection, onSnapshot } = window.firestoreLib;
+        const { ref, onValue } = window.databaseLib;
 
         // Real-time listener for posts
-        const postsCol = collection(db, "posts");
-        onSnapshot(postsCol, (snapshot) => {
+        const postsRef = ref(db, "posts");
+        onValue(postsRef, (snapshot) => {
+            const data = snapshot.val();
             let fbPosts = [];
-            snapshot.forEach(docSnap => {
-                fbPosts.push({ id: docSnap.id, ...docSnap.data() });
-            });
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    fbPosts.push({ id: key, ...data[key] });
+                });
+            }
 
             fbPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
             this.posts = fbPosts;
@@ -68,12 +71,15 @@ class LocalVibeApp {
         });
 
         // Real-time listener for contributors
-        const contribCol = collection(db, "contributors");
-        onSnapshot(contribCol, (snapshot) => {
+        const contribRef = ref(db, "contributors");
+        onValue(contribRef, (snapshot) => {
+            const data = snapshot.val();
             let fbContribs = [];
-            snapshot.forEach(docSnap => {
-                fbContribs.push({ ...docSnap.data() });
-            });
+            if (data) {
+                Object.keys(data).forEach(key => {
+                    fbContribs.push(data[key]);
+                });
+            }
 
             if (fbContribs.length > 0) {
                 fbContribs.sort((a, b) => b.points - a.points);
@@ -434,14 +440,15 @@ class LocalVibeApp {
 
             if (window.firebaseDb) {
                 const db = window.firebaseDb;
-                const { collection, addDoc } = window.firestoreLib;
-                const postsCol = collection(db, "posts");
+                const { ref, push, set } = window.databaseLib;
+                const postsRef = ref(db, "posts");
+                const newPostRef = push(postsRef);
                 const { id, ...postData } = newPost;
-                addDoc(postsCol, postData).then(() => {
+                set(newPostRef, postData).then(() => {
                     StorageManager.addPointsToUser(newPost.reporterName, 20);
                     this.showToast(TRANSLATIONS[this.currentLang].toastSuccess);
                 }).catch(err => {
-                    console.error("Firebase post failed:", err);
+                    console.error("Firebase RTDB post failed:", err);
                     this.posts = StorageManager.addPost(newPost);
                     this.renderPosts();
                 });
@@ -721,21 +728,17 @@ class LocalVibeApp {
             card.querySelector(".verify-btn").addEventListener("click", () => {
                 if (window.firebaseDb) {
                     const db = window.firebaseDb;
-                    const { doc, updateDoc, increment } = window.firestoreLib;
-                    const postRef = doc(db, "posts", post.id);
+                    const { ref, update } = window.databaseLib;
+                    const postRef = ref(db, `posts/${post.id}`);
                     
                     const hasVoted = StorageManager.hasVoted(post.id);
-                    if (hasVoted) {
-                        updateDoc(postRef, { upvotes: increment(-1) }).then(() => {
-                            StorageManager.toggleLocalVote(post.id, 'removed', post.reporterName);
-                            this.showToast(dict.toastUnverified, "warning");
-                        });
-                    } else {
-                        updateDoc(postRef, { upvotes: increment(1) }).then(() => {
-                            StorageManager.toggleLocalVote(post.id, 'added', post.reporterName);
-                            this.showToast(dict.toastVerified);
-                        });
-                    }
+                    const currentVotes = post.upvotes || 0;
+                    const newVotes = hasVoted ? Math.max(0, currentVotes - 1) : currentVotes + 1;
+                    
+                    update(postRef, { upvotes: newVotes }).then(() => {
+                        StorageManager.toggleLocalVote(post.id, hasVoted ? 'removed' : 'added', post.reporterName);
+                        this.showToast(hasVoted ? dict.toastUnverified : dict.toastVerified, hasVoted ? "warning" : "success");
+                    });
                 } else {
                     const result = StorageManager.upvotePost(post.id);
                     this.posts = result.posts;
@@ -754,9 +757,10 @@ class LocalVibeApp {
             card.querySelector(".flag-btn").addEventListener("click", () => {
                 if (window.firebaseDb) {
                     const db = window.firebaseDb;
-                    const { doc, updateDoc, increment } = window.firestoreLib;
-                    const postRef = doc(db, "posts", post.id);
-                    updateDoc(postRef, { flags: increment(1) }).then(() => {
+                    const { ref, update } = window.databaseLib;
+                    const postRef = ref(db, `posts/${post.id}`);
+                    const newFlags = (post.flags || 0) + 1;
+                    update(postRef, { flags: newFlags }).then(() => {
                         this.showToast(dict.toastFlagged, "error");
                     });
                 } else {
@@ -785,11 +789,10 @@ class LocalVibeApp {
 
                     if (window.firebaseDb) {
                         const db = window.firebaseDb;
-                        const { doc, updateDoc, arrayUnion } = window.firestoreLib;
-                        const postRef = doc(db, "posts", post.id);
-                        updateDoc(postRef, {
-                            comments: arrayUnion(newComment)
-                        }).then(() => {
+                        const { ref, set } = window.databaseLib;
+                        const commentsRef = ref(db, `posts/${post.id}/comments`);
+                        const updatedComments = post.comments ? [...post.comments, newComment] : [newComment];
+                        set(commentsRef, updatedComments).then(() => {
                             commentInput.value = "";
                         });
                     } else {

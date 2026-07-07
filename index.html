@@ -293,11 +293,12 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
-        import { getFirestore, collection, addDoc, getDocs, onSnapshot, doc, updateDoc, increment, arrayUnion, setDoc } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
+        import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB0JPQW3Lxt0LIKlWl_Q8XtcUQ3KrSxttk",
             authDomain: "elakabd.firebaseapp.com",
+            databaseURL: "https://elakabd-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "elakabd",
             storageBucket: "elakabd.firebasestorage.app",
             messagingSenderId: "74651845180",
@@ -312,16 +313,16 @@
         } catch (e) {
             console.warn("Firebase Analytics could not initialize (common when running on file:// protocol):", e);
         }
-        const db = getFirestore(app);
+        const db = getDatabase(app);
 
         // Expose Firebase components to window so standard script files can use them
         window.firebaseDb = db;
         window.firebaseAnalytics = analytics;
-        window.firestoreLib = { collection, addDoc, getDocs, onSnapshot, doc, updateDoc, increment, arrayUnion, setDoc };
+        window.databaseLib = { ref, set, push, onValue, update };
 
         // Dispatch a custom event to notify other scripts that Firebase is initialized
         window.dispatchEvent(new CustomEvent("firebase-ready"));
-        console.log("Firebase initialized successfully!");
+        console.log("Firebase Realtime Database initialized successfully!");
     </script>
 
     <!-- Code base -->
