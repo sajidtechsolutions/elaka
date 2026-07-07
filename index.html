@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalVibe - পাড়া কানেক্ট</title>
+    
+    <!-- Google Fonts: Outfit & Noto Sans Bengali -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+Bengali:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background glows -->
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+
+    <!-- Navigation Header (Brand Info Only) -->
+    <header class="main-header">
+        <div class="logo-container">
+            <svg class="logo-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--color-sports)" stroke-width="2.5">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="rgba(59, 130, 246, 0.15)" />
+                <circle cx="12" cy="9" r="3" fill="var(--color-primary)" />
+            </svg>
+            <div class="logo-text">
+                <span class="brand-title">LocalVibe</span>
+                <span class="brand-subtitle">পাড়া কানেক্ট - এলাকার সব খবরাখবর ও অনুষ্ঠান এক জায়গায়!</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Container -->
+    <div class="dashboard-container">
+        
+        <!-- Sidebar containing list feed & controls -->
+        <aside class="sidebar">
+            
+            <!-- Filters Panel -->
+            <div id="sidebar-filters" class="search-filter-section">
+                <div class="search-box-wrapper">
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="search-input" class="search-input" placeholder="অনুষ্ঠান, স্থান বা এলাকা দিয়ে খুঁজুন...">
+                </div>
+
+                <div class="food-filter-pills">
+                    <button class="pill active" data-food="all">সব ইভেন্ট</button>
+                    <button class="pill" data-food="food">খাবার/তাবাররক</button>
+                    <button class="pill" data-food="sports">খেলাধুলা</button>
+                    <button class="pill" data-food="religious">ধর্মীয়</button>
+                    <button class="pill" data-food="community">সামাজিক</button>
+                    <button class="pill" data-food="announcement">ঘোষণা/সতর্কতা</button>
+                    <button class="pill" data-food="culture">সংস্কৃতি/মেলা</button>
+                </div>
+
+                <div class="sub-filter-row">
+                    <select id="status-filter" class="status-dropdown">
+                        <option value="all">সব সময়</option>
+                        <option value="today">আজকে</option>
+                        <option value="upcoming">আসন্ন</option>
+                        <option value="past">অতীত</option>
+                    </select>
+                    
+                    <button id="btn-open-modal" class="btn-action-post">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="3.5" fill="none"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>পোস্ট করুন</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Home Feed view panel -->
+            <div id="home-view-panel" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                <div id="feed-container" class="feed-container">
+                    <!-- Cards will be dynamically injected here -->
+                </div>
+            </div>
+
+            <!-- Leaderboard View Panel -->
+            <div id="leaderboard-view-panel" class="leaderboard-view" style="display: none;">
+                <div class="leaderboard-header">
+                    <h2 id="leaderboard-title">সেরা লোকাল কন্ট্রিবিউটর</h2>
+                    <p id="leaderboard-subtitle">সঠিক ও ভেরিফাইড তথ্য শেয়ার করে এলাকার সবাইকে সাহায্য করুন</p>
+                </div>
+                <div class="leaderboard-table-card">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th id="th-rank">র‍্যাংক</th>
+                                <th id="th-contrib">কন্ট্রিবিউটর</th>
+                                <th id="th-points">পয়েন্ট</th>
+                                <th id="th-verif">ভেরিফিকেশন</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                            <!-- Leaderboard list will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Settings View Panel -->
+            <div id="settings-view-panel" class="settings-view" style="display: none;">
+                <div class="leaderboard-header">
+                    <h2 id="settings-title-text">অ্যাপ সেটিংস (Settings)</h2>
+                </div>
+                <div class="settings-card">
+                    <!-- Theme option -->
+                    <div class="settings-item">
+                        <div class="settings-label-block">
+                            <b id="settings-lbl-theme">থিম সিলেক্ট করুন (Theme)</b>
+                            <span id="settings-desc-theme">ডার্ক বা লাইট মোডে পরিবর্তন করুন</span>
+                        </div>
+                        <select id="settings-theme-select" class="settings-select">
+                            <option id="opt-theme-light" value="light">লাইট থিম (Light Mode)</option>
+                            <option id="opt-theme-dark" value="dark">ডার্ক থিম (Dark Mode)</option>
+                        </select>
+                    </div>
+
+                    <!-- Language Option -->
+                    <div class="settings-item">
+                        <div class="settings-label-block">
+                            <b id="settings-lbl-lang">ভাষা পরিবর্তন করুন (Language)</b>
+                            <span id="settings-desc-lang">বাংলা এবং ইংরেজির মধ্যে ভাষা পরিবর্তন করুন</span>
+                        </div>
+                        <select id="settings-lang-select" class="settings-select">
+                            <option value="bn">বাংলা (Bengali)</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+        </aside>
+
+        <!-- Right half map taking full space -->
+        <main id="map-panel" class="map-panel">
+            <div id="map"></div>
+        </main>
+        
+    </div>
+
+    <!-- Minimal Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <button class="bottom-nav-btn active" data-target="home-view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span id="nav-lbl-feed">ফিড</span>
+        </button>
+        <button class="bottom-nav-btn" data-target="map-view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+            <span id="nav-lbl-map">মানচিত্র</span>
+        </button>
+        <button class="bottom-nav-btn" data-target="leaderboard-view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+            <span id="nav-lbl-leaderboard">সেরা</span>
+        </button>
+        <button class="bottom-nav-btn" data-target="settings-view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span id="nav-lbl-settings">সেটিংস</span>
+        </button>
+    </nav>
+
+    <!-- Post Modal Overlay -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-title-text">নতুন ইভেন্ট শেয়ার করুন</h3>
+                <button id="btn-close-modal" class="btn-close-modal">✕</button>
+            </div>
+            <form id="add-post-form">
+                <!-- Location details row (District and Upazila) -->
+                <div class="location-selector-row" style="margin-bottom: 0.8rem;">
+                    <div class="form-group">
+                        <label id="lbl-form-district" for="district-select">জেলা (District) *</label>
+                        <select id="district-select" class="form-select" required>
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label id="lbl-form-upazila" for="upazila-select">উপজেলা/এলাকা (Upazila) *</label>
+                        <select id="upazila-select" class="form-select" required disabled>
+                            <!-- Options populated dynamically based on District selection -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Coordinates input grid with GPS button -->
+                <div class="form-group" style="margin-bottom: 0.8rem;">
+                    <label id="label-map-inst">ল্যাটিটিউড এবং লঞ্জিটিউড (ঐচ্ছিক)</label>
+                    <div class="coordinates-row">
+                        <div class="coords-fields">
+                            <input type="number" step="any" id="lat-input" class="form-input" placeholder="Latitude">
+                            <input type="number" step="any" id="lng-input" class="form-input" placeholder="Longitude">
+                        </div>
+                        <button type="button" id="btn-gps-fetch" class="btn-gps-fetch">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v2M12 20v2M4 12H2M22 12h-2"/><circle cx="12" cy="12" r="7"/></svg>
+                            <span id="lbl-gps-btn">GPS</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0.8rem;">
+                    <label id="label-event-title" for="event-title-input">ইভেন্ট/অনুষ্ঠানের নাম *</label>
+                    <input type="text" id="event-title-input" class="form-input" placeholder="যেমন: পাড়ার ফ্রেন্ডলি ফুটবল ম্যাচ" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0.8rem;">
+                    <label id="label-venue" for="venue-name-input">স্থান/ঠিকানা *</label>
+                    <input type="text" id="venue-name-input" class="form-input" placeholder="যেমন: লালবাগ কেল্লার মোড়" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0.8rem;">
+                    <label id="label-category" for="category-select">ক্যাটাগরি *</label>
+                    <select id="category-select" class="form-select" required>
+                        <option id="opt-food" value="food">খাবার/তাবাররক</option>
+                        <option id="opt-sports" value="sports">খেলাধুলা</option>
+                        <option id="opt-religious" value="religious">ধর্মীয়</option>
+                        <option id="opt-community" value="community">সামাজিক</option>
+                        <option id="opt-announcement" value="announcement">ঘোষণা/সতর্কতা</option>
+                        <option id="opt-culture" value="culture">সংস্কৃতি/মেলা</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0.8rem;">
+                    <label id="label-time" for="dist-time-input">অনুষ্ঠানের সময় *</label>
+                    <input type="text" id="dist-time-input" class="form-input" placeholder="যেমন: আজ বিকেল ৪টা থেকে" required>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0.8rem;">
+                    <label id="label-details" for="details-input">বিস্তারিত বিবরণ (অপশনাল)</label>
+                    <textarea id="details-input" class="form-textarea" placeholder="ইভেন্ট সম্পর্কে প্রয়োজনীয় বিবরণ এখানে লিখুন..."></textarea>
+                </div>
+
+                <!-- Anonymous Post Toggle -->
+                <div class="anonymous-row" style="margin-bottom: 0.8rem;">
+                    <div class="switch-label-block">
+                        <b id="lbl-anonymous-text">নাম গোপন রাখুন (পোস্ট করুন বেনামে)</b>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="anonymous-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="reporter-name-group" class="form-group" style="margin-bottom: 0.8rem;">
+                    <label id="label-reporter" for="reporter-name-input">আপনার নাম</label>
+                    <input type="text" id="reporter-name-input" class="form-input" placeholder="আপনার নাম লিখুন...">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="btn-cancel-modal" class="btn-cancel">বাতিল</button>
+                    <button type="submit" id="btn-submit-post" class="btn-submit">পোস্ট করুন</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Area -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Leaflet JS Library -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Code base -->
+    <script src="js/locations.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
